@@ -10,15 +10,49 @@ import json
 import datetime
 
 
-# get the access token from the environment variable if it exists
-if 'STRAVA_ACCESS_TOKEN' in os.environ:
-    access_token = os.environ['STRAVA_ACCESS_TOKEN']
-    print("Access Token obtained from environment variable!")
+CLIENT_ID = os.environ['STRAVA_CLIENT_ID']  # Your app's client ID
+CLIENT_SECRET = os.environ['STRAVA_CLIENT_SECRET']  # Your app's client secret
+
+
+# get the access token from the temp file
+access_token = None
+if os.path.exists('access_token.json'):
+    with open('access_token.json', 'r') as f:
+        token_data = json.load(f)
+        access_token = token_data['access_token']
+        refresh_token = token_data['refresh_token']
+        expires_at = token_data['expires_at']
+        print("Access Token obtained successfully!")
+
+        # if the token is expired, refresh it
+        if expires_at < datetime.datetime.now().timestamp():
+            print("Token expired, refreshing token")
+            token_response = requests.post(
+                'https://www.strava.com/oauth/token',
+                data={
+                    'client_id': CLIENT_ID,
+                    'client_secret': CLIENT_SECRET,
+                    'refresh_token': refresh_token,
+                    'grant_type': 'refresh_token'
+                }
+            )
+
+            token_data = token_response.json()
+
+            if 'access_token' in token_data:
+                access_token = token_data['access_token']
+                refresh_token = token_data['refresh_token']
+                expires_at = token_data['expires_at']
+                print("Access Token obtained successfully!")
+                # save the access token to an temp file
+                with open('access_token.json', 'w') as f:
+                    json.dump(token_data, f)
+            else:
+                print("Error obtaining access token:", token_data)
+                exit()
 else:
 
     # Replace these with your app's details
-    CLIENT_ID = os.environ['STRAVA_CLIENT_ID']  # Your app's client ID
-    CLIENT_SECRET = os.environ['STRAVA_CLIENT_SECRET']  # Your app's client secret
     REDIRECT_URI = 'http://localhost'  # Redirect URI (must match the one set in your app settings)
     SCOPE = 'read,activity:write'      # Scopes you need
 
@@ -52,8 +86,9 @@ else:
         refresh_token = token_data['refresh_token']
         expires_at = token_data['expires_at']
         print("Access Token obtained successfully!")
-        # save the access token to an environment variable
-        os.environ['STRAVA_ACCESS_TOKEN'] = access_token
+        # save the access token to an temp file
+        with open('access_token.json', 'w') as f:
+            json.dump(token_data, f)
     else:
         print("Error obtaining access token:", token_data)
         exit()
@@ -64,11 +99,6 @@ df = pd.read_csv('runs/runs.csv')
 
 # loop through the rows
 for index, row in df.iterrows():
-    # break after 1 row for testing
-    if index == 1:
-        break
-
-
     # get the date, distance, time, and notes
     date = row['date']
     distance = row['distance']
@@ -91,6 +121,9 @@ for index, row in df.iterrows():
     else:
         # Assume 'time' is in minutes
         total_seconds = int(time) * 60
+
+    # get distance meters (convert miles to meters)
+    distance = float(distance) * 1609.34
 
     # Create the payload
     print
