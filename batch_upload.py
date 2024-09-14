@@ -9,8 +9,55 @@ import pandas as pd
 import json
 import datetime
 
-# get the API key
-api_key = os.environ['STRAVA_API_KEY']
+
+# get the access token from the environment variable if it exists
+if 'STRAVA_ACCESS_TOKEN' in os.environ:
+    access_token = os.environ['STRAVA_ACCESS_TOKEN']
+    print("Access Token obtained from environment variable!")
+else:
+
+    # Replace these with your app's details
+    CLIENT_ID = os.environ['STRAVA_CLIENT_ID']  # Your app's client ID
+    CLIENT_SECRET = os.environ['STRAVA_CLIENT_SECRET']  # Your app's client secret
+    REDIRECT_URI = 'http://localhost'  # Redirect URI (must match the one set in your app settings)
+    SCOPE = 'read,activity:write'      # Scopes you need
+
+    # Construct the authorization URL
+    auth_url = (
+        f"https://www.strava.com/oauth/authorize?client_id={CLIENT_ID}"
+        f"&response_type=code&redirect_uri={REDIRECT_URI}"
+        f"&approval_prompt=force&scope={SCOPE}"
+    )
+
+    print("Visit this URL in your browser to authorize the application:")
+    print(auth_url)
+
+    authorization_code = input("Enter the code parameter from the URL after authorization: ")
+
+    # Exchange the authorization code for an access token
+    token_response = requests.post(
+        'https://www.strava.com/oauth/token',
+        data={
+            'client_id': CLIENT_ID,
+            'client_secret': CLIENT_SECRET,
+            'code': authorization_code,
+            'grant_type': 'authorization_code'
+        }
+    )
+
+    token_data = token_response.json()
+
+    if 'access_token' in token_data:
+        access_token = token_data['access_token']
+        refresh_token = token_data['refresh_token']
+        expires_at = token_data['expires_at']
+        print("Access Token obtained successfully!")
+        # save the access token to an environment variable
+        os.environ['STRAVA_ACCESS_TOKEN'] = access_token
+    else:
+        print("Error obtaining access token:", token_data)
+        exit()
+
 
 # read in the spreadsheet
 df = pd.read_csv('runs/runs.csv')
@@ -29,11 +76,12 @@ for index, row in df.iterrows():
     notes = row['notes']
     name = row['name']
 
-    
+
     # Parse the date and set the start time to 5 PM
-    date_obj = datetime.datetime.strptime(date, '%Y-%m-%d')
+    date_obj = datetime.datetime.strptime(date, '%m/%d/%Y')
     start_time = date_obj.replace(hour=17, minute=0, second=0)
-    timestamp = int(start_time.timestamp())
+    # Convert start_time to ISO 8601 format
+    start_time_iso = start_time.isoformat()
 
     # Process the 'time' variable for elapsed time
     if ':' in time:
@@ -45,10 +93,11 @@ for index, row in df.iterrows():
         total_seconds = int(time) * 60
 
     # Create the payload
+    print
     payload = {
         'name': name,
         'type': 'Run',
-        'start_date_local': timestamp,
+        'start_date_local': start_time_iso,
         'elapsed_time': total_seconds,
         'distance': distance,
         'description': notes
@@ -57,7 +106,7 @@ for index, row in df.iterrows():
 
     # make the request
     url = 'https://www.strava.com/api/v3/activities'
-    headers = {'Authorization': 'Bearer ' + api_key}
+    headers = {'Authorization': 'Bearer ' + access_token}
     r = requests.post(url, headers=headers, data=payload)
 
     # print the response
