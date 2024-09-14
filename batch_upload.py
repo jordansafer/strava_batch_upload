@@ -98,7 +98,8 @@ else:
 df = pd.read_csv('runs/runs.csv')
 
 # loop through the rows
-for index, row in df.iterrows():
+from tqdm import tqdm
+for index, row in tqdm(df.iterrows()):
     # get the date, distance, time, and notes
     date = row['date']
     distance = row['distance']
@@ -141,6 +142,3 @@ for index, row in df.iterrows():
     url = 'https://www.strava.com/api/v3/activities'
     headers = {'Authorization': 'Bearer ' + access_token}
     r = requests.post(url, headers=headers, data=payload)
-
-    # print the response
-    print(r.text)
