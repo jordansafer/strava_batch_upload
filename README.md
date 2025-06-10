@@ -28,8 +28,8 @@ pip install -r requirements.txt
 Set environment variables, from your strava API-application settings, then run the script.
 
 ```
-export CLIENT_ID=<>
-export CLIENT_SECRET=<>
+export STRAVA_CLIENT_ID=<>
+export STRAVA_CLIENT_SECRET=<>
 python batch_upload.py
 ```
 If this is your first time running the script, you will be prompted to log in to strava at a given URL. To continue:
